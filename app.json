@@ -9,13 +9,19 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.pettrackerapp",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We need your location to track your pet's walks and record their routes.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to track your pet's walks and record their routes even when the app is in the background."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.anonymous.pettrackerapp"
     },
     "web": {
       "bundler": "metro",
