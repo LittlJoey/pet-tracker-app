@@ -1,30 +1,59 @@
-import { Animated, Image, RefreshControl, StyleSheet } from "react-native";
+import React from "react";
+import {
+  Animated,
+  Image,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet
+} from "react-native";
 
-import ParallaxScrollView from "@/components/ParallaxScrollView";
-import { PetInfoCard } from "@/components/PetInfoCard";
-import { Activity, RecentActivityCard } from "@/components/RecentActivityCard";
+import { GreetingBanner } from "@/components/GreetingBanner";
+import {
+  convertToDisplayActivity,
+  PetActivityCard
+} from "@/components/PetActivityCard";
 import { SidebarPetList } from "@/components/SidebarPetList";
-import { ThemedView } from "@/components/ThemedView";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Colors } from "@/constants/Colors";
-import { useAppSelector } from "@/store";
-import { LinearGradient } from "expo-linear-gradient";
+import { useAppDispatch, useAppSelector } from "@/store";
+import {
+  fetchActivityStats,
+  fetchTodayActivities
+} from "@/store/activitiesSlice";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useColorScheme } from "react-native";
 
 export default function HomeScreen() {
+  const dispatch = useAppDispatch();
   const selectedPet = useAppSelector((state) => state.pets.selectedPet);
   const pets = useAppSelector((state) => state.pets.pets);
+  const user = useAppSelector((state) => state.auth.user);
+  const userLoading = useAppSelector((state) => state.auth.loading);
+  const activities = useAppSelector(
+    (state) => state.activities.todayActivities
+  );
+  const activityStats = useAppSelector((state) => state.activities.stats);
+  const activityLoading = useAppSelector((state) => state.activities.loading);
+  const activityError = useAppSelector((state) => state.activities.error);
   const colorScheme = useColorScheme() ?? "light";
   const [refreshing, setRefreshing] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  const handleRetry = useCallback(() => {
+    const fetchParams = selectedPet?.id ? { petId: selectedPet.id } : {};
+    dispatch(fetchTodayActivities(fetchParams));
+    dispatch(fetchActivityStats(fetchParams));
+  }, [dispatch, selectedPet?.id]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // Simulate data refresh
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 2000);
-  }, []);
+    // Fetch real data on refresh
+    const fetchParams = selectedPet?.id ? { petId: selectedPet.id } : {};
+    dispatch(fetchTodayActivities(fetchParams))
+      .then(() => dispatch(fetchActivityStats(fetchParams)))
+      .finally(() => setRefreshing(false));
+  }, [dispatch, selectedPet?.id]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -34,23 +63,91 @@ export default function HomeScreen() {
     }).start();
   }, [selectedPet]);
 
+  // Fetch activities when component mounts or selected pet changes
+  useEffect(() => {
+    console.log("Fetching activities for petId:", selectedPet?.id);
+    if (selectedPet?.id) {
+      dispatch(fetchTodayActivities({ petId: selectedPet.id }));
+      dispatch(fetchActivityStats({ petId: selectedPet.id }));
+    } else {
+      console.log("Fetching activities for all pets");
+      // Fetch all activities if no pet is selected
+      dispatch(fetchTodayActivities({}));
+      dispatch(fetchActivityStats({}));
+    }
+  }, [dispatch, selectedPet?.id]);
+
+  useEffect(() => {
+    // Fetch all activities if no pet is selected
+    dispatch(fetchTodayActivities({}));
+    dispatch(fetchActivityStats({}));
+  }, []);
+
   return (
-    <ThemedView style={styles.container}>
-      <ParallaxScrollView
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors[colorScheme].text}
-          />
-        }
-        headerBackgroundColor={{
-          light: Colors.light.secondary,
-          dark: Colors.dark.secondary
-        }}
-        headerImage={
-          selectedPet?.avatar ? (
-            <Animated.View style={{ opacity: fadeAnim }}>
+    <ErrorBoundary>
+      <SafeAreaView style={styles.container}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={Colors[colorScheme].text}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Greeting Banner */}
+          <GreetingBanner userName={user?.email} loading={userLoading} />
+
+          {/* Pet Activity Card */}
+          {selectedPet ? (
+            <PetActivityCard
+              pet={selectedPet}
+              activities={
+                activities
+                  .filter((activity) => activity.pet_id === selectedPet.id)
+                  .map((activity) => convertToDisplayActivity(activity))
+                  .slice(0, 10) // Limit to recent activities
+              }
+              totalWalks={activityStats.totalWalks}
+              totalDistance={activityStats.totalDistance.toFixed(1)}
+              loading={activityLoading}
+              error={activityError}
+              onRetry={handleRetry}
+              onViewMore={() =>
+                console.log("View more activities for", selectedPet.name)
+              }
+            />
+          ) : (
+            <PetActivityCard
+              activities={
+                activities
+                  .map((activity) => {
+                    // Find pet name for multi-pet view
+                    const pet = pets.find((p) => p.id === activity.pet_id);
+                    return convertToDisplayActivity(activity, pet?.name);
+                  })
+                  .slice(0, 10) // Limit to recent activities
+              }
+              totalWalks={activityStats.totalWalks}
+              totalDistance={activityStats.totalDistance.toFixed(1)}
+              isMultiPetView={true}
+              loading={activityLoading}
+              error={activityError}
+              onRetry={handleRetry}
+              onViewMore={() =>
+                console.log("View more activities for all pets")
+              }
+            />
+          )}
+
+          {/* Pet Avatar Section */}
+          {selectedPet?.avatar && (
+            <Animated.View
+              style={[styles.avatarSection, { opacity: fadeAnim }]}
+            >
               <Image
                 source={{ uri: selectedPet.avatar }}
                 style={[
@@ -64,143 +161,55 @@ export default function HomeScreen() {
                 ]}
               />
             </Animated.View>
-          ) : (
-            <Image
-              source={require("@/assets/images/partial-react-logo.png")}
-              style={styles.reactLogo}
-            />
-          )
-        }
-      >
-        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-          <LinearGradient
-            colors={
-              [
-                colorScheme === "light"
-                  ? selectedPet
-                    ? ["rgba(255,255,255,0.9)", "rgba(255,255,255,1)"]
-                    : ["rgba(161,206,220,0.9)", "rgba(161,206,220,1)"]
-                  : selectedPet
-                  ? ["rgba(21,23,24,0.9)", "rgba(21,23,24,1)"]
-                  : ["rgba(29,61,71,0.9)", "rgba(29,61,71,1)"]
-              ][0]
-            }
-            style={styles.contentGradient}
-          >
-            {selectedPet ? (
-              <>
-                <ThemedView style={styles.section}>
-                  <PetInfoCard pet={selectedPet} />
-                </ThemedView>
-
-                <ThemedView style={styles.section}>
-                  <RecentActivityCard
-                    activities={[
-                      // Example activities - replace with real data
-                      {
-                        id: "1",
-                        type: "walk",
-                        date: new Date(),
-                        title: "Morning Walk"
-                      },
-                      {
-                        id: "2",
-                        type: "medication",
-                        date: new Date(),
-                        title: "Daily Medicine"
-                      }
-                    ]}
-                  />
-                </ThemedView>
-              </>
-            ) : (
-              <ThemedView style={styles.content}>
-                <ThemedView style={styles.section}>
-                  <RecentActivityCard
-                    activities={pets
-                      .flatMap(
-                        (pet) =>
-                          [
-                            {
-                              id: `${pet.id}-walk`,
-                              type: "walk",
-                              date: new Date(),
-                              title: `${pet.name}'s Morning Walk`
-                            },
-                            {
-                              id: `${pet.id}-med`,
-                              type: "medication",
-                              date: new Date(),
-                              title: `${pet.name}'s Daily Medicine`
-                            }
-                          ] as Activity[]
-                      )
-                      .sort((a, b) => b.date.getTime() - a.date.getTime())}
-                  />
-                </ThemedView>
-              </ThemedView>
-            )}
-          </LinearGradient>
-        </Animated.View>
-      </ParallaxScrollView>
-      <SidebarPetList />
-    </ThemedView>
+          )}
+        </ScrollView>
+        <SidebarPetList />
+      </SafeAreaView>
+    </ErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
-  contentGradient: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: "100%",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20
-  },
   container: {
+    flex: 1,
+    backgroundColor: Colors.light.background
+  },
+  scrollView: {
     flex: 1
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 100 // Account for tab bar
+  },
+  avatarSection: {
+    alignItems: "center",
+    marginBottom: 20
+  },
+  petAvatar: {
+    height: 120,
+    width: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    shadowColor: Colors.light.text,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8
   },
   content: {
     padding: 16,
     gap: 16,
+    backgroundColor: "transparent",
+    minHeight: 400
+  },
+  contentGradient: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    backgroundColor: "transparent",
-    minHeight: 500
+    paddingHorizontal: 16,
+    paddingVertical: 20
   },
   section: {
     marginBottom: 16,
     transform: [{ scale: 1 }]
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: "absolute"
-  },
-  petAvatar: {
-    height: 200,
-    width: 200,
-    borderRadius: 100,
-    alignSelf: "center",
-    marginTop: 20,
-    borderWidth: 4,
-    shadowColor: Colors.light.text,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8
-  },
-  petsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: 16
-  },
-  gridItem: {
-    width: "48%",
-    marginBottom: 16
   }
 });

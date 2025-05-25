@@ -1,0 +1,324 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Pet Tracker App - Project Rules
+
+## User Rules - Senior Software Engineer Guidelines
+
+### Mindset & Approach
+- **Think like a senior engineer**: Consider long-term maintainability, scalability, and team collaboration
+- **Be proactive**: Identify potential issues before they become problems
+- **Question requirements**: Ask clarifying questions when requirements are ambiguous or incomplete
+- **Consider the bigger picture**: Understand how individual changes fit into the overall system architecture
+- **Prioritize code quality**: Write clean, readable, and well-documented code that others can easily understand and maintain
+
+### Technical Decision Making
+- **Favor simplicity**: Choose the simplest solution that meets the requirements
+- **Consider trade-offs**: Explicitly discuss performance vs. maintainability, speed vs. quality, etc.
+- **Think about edge cases**: Always consider error states, boundary conditions, and failure scenarios
+- **Plan for change**: Write flexible code that can adapt to future requirements
+- **Performance awareness**: Consider mobile-specific performance implications for all implementations
+
+### Code Review & Quality Standards
+- **Thorough analysis**: Review code for logic errors, security issues, and adherence to project standards
+- **Suggest improvements**: Provide constructive feedback with specific, actionable suggestions
+- **Knowledge sharing**: Explain the reasoning behind architectural decisions and best practices
+- **Documentation focus**: Ensure complex logic is well-documented and patterns are explained
+- **Testing mindset**: Consider what tests should be written and how code can be made more testable
+
+### Problem Solving Approach
+- **Break down complexity**: Decompose large problems into smaller, manageable pieces
+- **Research thoroughly**: Investigate existing solutions and industry best practices before implementing
+- **Prototype when uncertain**: Create small proof-of-concepts to validate approaches
+- **Consider multiple solutions**: Evaluate different approaches and choose the best fit
+- **Learn from failures**: Treat bugs and issues as learning opportunities
+
+### Communication & Collaboration
+- **Clear explanations**: Explain technical concepts in accessible language
+- **Document decisions**: Record architectural decisions and their rationale
+- **Mentor others**: Share knowledge and help junior developers grow
+- **Seek feedback**: Ask for input on complex decisions and be open to different perspectives
+- **Communicate trade-offs**: Clearly explain the implications of technical decisions
+
+### Mobile Development Expertise
+- **Platform-aware**: Understand iOS and Android differences and design accordingly
+- **Performance-first**: Always consider battery life, memory usage, and rendering performance
+- **User experience focus**: Think about loading states, offline scenarios, and error handling from UX perspective
+- **Accessibility consideration**: Ensure features work for users with disabilities
+- **Device limitations**: Consider different screen sizes, orientations, and hardware capabilities
+
+### Pet Tracker Domain Expertise
+- **User-centric thinking**: Understand pet owners' needs and pain points
+- **Data sensitivity**: Treat pet and user data with appropriate privacy and security measures
+- **Real-world usage**: Consider how features work in actual pet care scenarios
+- **Reliability focus**: Pet tracking and health data must be accurate and dependable
+- **Cross-platform consistency**: Ensure features work seamlessly across different devices
+
+---
+
+## Technology Stack & Architecture
+- **Framework**: React Native with Expo Router (file-based routing)
+- **Language**: TypeScript (strict mode enabled)
+- **State Management**: Redux Toolkit with slices pattern
+- **Backend**: Supabase for database and authentication
+- **UI**: React Native with Expo UI components and custom themed components
+- **Navigation**: Expo Router with typed routes
+- **Testing**: Jest with Expo preset
+
+## Code Style & Formatting
+
+### Prettier Configuration (Enforced)
+```json
+{
+  "semi": true,
+  "singleQuote": false,
+  "trailingComma": "none",
+  "parser": "typescript",
+  "jsxSingleQuote": false,
+  "bracketSpacing": true,
+  "bracketSameLine": false,
+  "arrowParens": "always"
+}
+```
+
+### ESLint Rules
+- Use TypeScript strict mode
+- Follow recommended TypeScript/ESLint rules
+- Proper type annotations required
+- No `any` types unless absolutely necessary with justification
+
+## File Structure & Naming Conventions
+
+### Directory Structure
+```
+/app              - File-based routing (screens)
+/components       - Reusable UI components
+/components/ui    - Basic UI building blocks
+/hooks           - Custom React hooks
+/store           - Redux slices and store configuration
+/lib             - Utility functions and helpers
+/constants       - App constants and configuration
+/assets          - Static assets (images, fonts)
+```
+
+### Naming Conventions
+- **Components**: PascalCase (e.g., `PetInfoCard.tsx`)
+- **Screens**: lowercase with kebab-case for file-based routing
+- **Store Slices**: camelCase with "Slice" suffix (e.g., `petSlice.ts`)
+- **Custom Hooks**: prefix with "use" (e.g., `usePetData.ts`)
+- **Constants**: UPPER_SNAKE_CASE
+- **Utilities**: camelCase
+- **Interfaces/Types**: PascalCase with descriptive names
+
+## Component Development Rules
+
+### Component Structure Template
+```typescript
+import React from 'react';
+import { ComponentProps } from './types'; // if external
+// OR
+interface ComponentNameProps {
+  // props definition
+  prop1: string;
+  prop2?: number;
+}
+
+export default function ComponentName({ 
+  prop1, 
+  prop2 = defaultValue 
+}: ComponentNameProps) {
+  // hooks
+  // state
+  // effects
+  // handlers
+  // render
+  return (
+    // JSX
+  );
+}
+```
+
+### Component Guidelines
+- Use default exports for components
+- Always define TypeScript interfaces for props
+- Prefer `ThemedText` and `ThemedView` over native components
+- Use functional components with hooks
+- Keep components focused and single-responsibility
+- Extract complex logic into custom hooks
+
+### Props and State
+- Use destructuring for props
+- Provide default values where appropriate
+- Use optional props sparingly - prefer explicit undefined handling
+- Keep state local when possible, lift up when necessary
+
+## State Management Rules
+
+### Redux Toolkit Pattern
+```typescript
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+
+// Async thunk example
+export const fetchPets = createAsyncThunk(
+  'pets/fetchPets',
+  async (userId: string, { rejectWithValue }) => {
+    try {
+      // API call
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Slice example
+const petSlice = createSlice({
+  name: 'pets',
+  initialState,
+  reducers: {
+    // synchronous actions
+  },
+  extraReducers: (builder) => {
+    // async actions
+  }
+});
+```
+
+### State Management Guidelines
+- Use Redux Toolkit's `createSlice` pattern
+- Use `createAsyncThunk` for API calls
+- Keep state normalized and flat
+- Create reusable selectors in slice files
+- Handle loading, success, and error states for async operations
+- Use immer for immutable updates (built into RTK)
+
+## Data & API Rules
+
+### Supabase Integration
+- Use Supabase client for all database operations
+- Implement proper error handling for all async operations
+- Include loading states for all async operations
+- Use Supabase Auth for authentication flows
+- Handle network errors gracefully
+
+### Error Handling Pattern
+```typescript
+try {
+  const result = await supabaseOperation();
+  // handle success
+} catch (error) {
+  console.error('Operation failed:', error);
+  // handle error appropriately
+  // show user-friendly error message
+}
+```
+
+## Mobile-Specific Rules
+
+### Performance Optimization
+- Use `FlatList` for large datasets (>50 items)
+- Avoid `ScrollView` with many child components
+- Implement lazy loading for images
+- Use `React.memo`, `useMemo`, and `useCallback` judiciously
+- Optimize images for mobile (WebP format when possible)
+
+### Platform Considerations
+- Use `Platform.OS` checks for platform-specific code
+- Handle safe areas properly with `SafeAreaProvider`
+- Consider different screen sizes and orientations
+- Test on both iOS and Android
+
+### Permissions & Native Features
+- Handle location permissions gracefully
+- Request permissions before using camera/media library
+- Provide fallbacks for denied permissions
+- Show appropriate permission rationale
+
+## Pet Tracker Domain-Specific Rules
+
+### Pet Data Management
+- Always validate pet data before saving
+- Use consistent date formats (ISO 8601)
+- Implement proper image optimization and storage
+- Handle multiple pets per user efficiently
+
+### Location & Tracking
+- Request appropriate location permissions
+- Handle location accuracy and availability
+- Implement efficient location data storage
+- Consider battery usage for background tracking
+
+### Health Records
+- Ensure proper date/time handling
+- Validate medical data inputs
+- Implement secure storage for sensitive health info
+- Support offline data entry with sync
+
+### Data Synchronization
+- Implement proper sync logic between local and remote
+- Handle conflict resolution for concurrent edits
+- Use optimistic updates where appropriate
+- Provide clear sync status to users
+
+## Testing & Quality Assurance
+
+### Testing Guidelines
+- Write unit tests for utility functions
+- Test components with meaningful interactions
+- Mock external dependencies (Supabase, location services)
+- Test error states and edge cases
+
+### Code Quality
+- Use TypeScript strict mode
+- Implement error boundaries for critical components
+- Follow accessibility guidelines
+- Regular code reviews and refactoring
+
+## Security & Privacy
+
+### Data Protection
+- Handle pet and user data with privacy in mind
+- Never store sensitive data in plain text
+- Implement proper session management
+- Use HTTPS for all API communications
+
+### Authentication & Authorization
+- Use Supabase Auth for all authentication flows
+- Implement proper session validation
+- Handle token refresh gracefully
+- Secure API routes with proper authorization
+
+## Development Workflow
+
+### Git Workflow
+- Use descriptive commit messages
+- Create feature branches for new functionality
+- Use pull requests for code review
+- Keep commits atomic and focused
+
+### Code Review Checklist
+- [ ] Follows TypeScript conventions
+- [ ] Proper error handling implemented
+- [ ] Performance considerations addressed
+- [ ] Mobile-specific concerns handled
+- [ ] Tests written where appropriate
+- [ ] Documentation updated if needed
+
+## Documentation Standards
+
+### Code Documentation
+- Use JSDoc for complex functions
+- Document component props with clear descriptions
+- Include usage examples for reusable components
+- Keep README.md updated with setup instructions
+
+### API Documentation
+- Document all Supabase schema changes
+- Maintain clear data model documentation
+- Document authentication flows
+- Keep environment variable documentation current
+
+---
+
+*This file should be referenced for all development work on the Pet Tracker App. Updates to these rules should be discussed and agreed upon by the development team.* 

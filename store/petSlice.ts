@@ -2,7 +2,7 @@ import { Pet } from "@/app/(tabs)/pets";
 import { PetsDao } from "@/lib/dao/petsDao";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { store } from "./index";
+// Removed circular dependency - will dispatch from components instead
 
 type PetState = {
   pets: Pet[];
@@ -76,7 +76,7 @@ const petSlice = createSlice({
   name: "pets",
   initialState,
   reducers: {
-    selectPet: (state, action: PayloadAction<Pet>) => {
+    selectPet: (state, action: PayloadAction<Pet | null>) => {
       state.selectedPet = action.payload;
     },
     setPremium: (state, action: PayloadAction<boolean>) => {
@@ -98,8 +98,7 @@ const petSlice = createSlice({
           date: action.payload.date,
           weight: action.payload.weight
         });
-        // Dispatch updatePet thunk instead of directly calling it
-        store.dispatch(updatePet(pet));
+        // Note: Component should dispatch updatePet to persist changes
       }
     },
     addHealthRecord: (
@@ -122,11 +121,10 @@ const petSlice = createSlice({
           pet.healthRecords = [];
         }
         pet.healthRecords.push(action.payload.record);
-        // Dispatch updatePet thunk instead of directly calling it
-        store.dispatch(updatePet(pet));
+        // Note: Component should dispatch updatePet to persist changes
       }
     },
-    HYDRATE: (state, action: PayloadAction<any>) => {
+    HYDRATE: (state, action: PayloadAction<{ pets: PetState }>) => {
       return { ...state, ...action.payload.pets };
     }
   },

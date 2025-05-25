@@ -12,8 +12,10 @@ export function SidebarPetList() {
   const pets = useAppSelector((state) => state.pets.pets);
   const selectedPet = useAppSelector((state) => state.pets.selectedPet);
   const dispatch = useAppDispatch();
+  console.log("pets", pets);
+  console.log("selectedPet", selectedPet);
 
-  const handleSelectPet = (pet: Pet) => {
+  const handleSelectPet = (pet: Pet | null) => {
     dispatch(selectPet(pet));
   };
 
@@ -30,8 +32,6 @@ export function SidebarPetList() {
             styles.petItem,
             selectedPet?.id === pet.id && styles.selectedPet
           ]}
-          lightColor={Colors.light.trasparent}
-          darkColor={Colors.dark.transparent}
           onPress={() => handleSelectPet(pet)}
         >
           {pet.avatar ? (
@@ -89,26 +89,25 @@ export function SidebarPetList() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     position: "absolute",
-    right: 12,
-    bottom: 20,
-    transform: [{ translateY: -100 }],
+    right: 16,
+    bottom: 120, // Account for tab bar
     zIndex: 1000,
-    gap: 12
+    gap: 12,
+    backgroundColor: "transparent"
   },
   petItem: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: Colors.light.trasparent,
+    backgroundColor: Colors.light.background,
     shadowColor: Colors.light.text,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3.84,
-    elevation: 5
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 8
   },
   selectedPet: {
     borderWidth: 2,
