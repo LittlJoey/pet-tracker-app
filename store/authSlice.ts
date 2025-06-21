@@ -1,4 +1,10 @@
-import { getCurrentUser, signIn, signOut, signUp } from "@/lib/supabase";
+import {
+  getCurrentUser,
+  signIn,
+  signOut,
+  signUp,
+  validateAndRefreshSession
+} from "@/lib/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 
@@ -14,6 +20,8 @@ interface AuthState {
   error: string | null;
   isAuthenticated: boolean;
   lastError?: string;
+  sessionValid: boolean;
+  lastValidationTime?: number;
 }
 
 const initialState: AuthState = {
@@ -21,7 +29,9 @@ const initialState: AuthState = {
   loading: false,
   error: null,
   isAuthenticated: false,
-  lastError: undefined
+  lastError: undefined,
+  sessionValid: false,
+  lastValidationTime: undefined
 };
 
 // Enhanced error handling for network issues
@@ -57,30 +67,84 @@ const isNoSessionError = (error: unknown): boolean => {
   );
 };
 
+// Enhanced initialization with token validation
 export const initializeAuth = createAsyncThunk(
   "auth/initialize",
   async (_, { rejectWithValue }) => {
     try {
-      const user = await getCurrentUser();
-      if (user) {
+      console.log("Initializing auth with session validation...");
+
+      // First try to validate and refresh existing session
+      const { user, session } = await validateAndRefreshSession();
+
+      if (user && session) {
         const userData: User = {
           id: user.id,
           email: user.email || "",
           name: user.user_metadata?.name
         };
         await AsyncStorage.setItem("user", JSON.stringify(userData));
-        return userData;
+        return { user: userData, sessionValid: true };
       }
-      return null;
+
+      // If no valid session, try to get stored user data
+      const storedUser = await AsyncStorage.getItem("user");
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          // Validate that the stored user data is still valid
+          const currentUser = await getCurrentUser();
+          if (currentUser && currentUser.id === userData.id) {
+            return { user: userData, sessionValid: true };
+          }
+        } catch (parseError) {
+          console.log("Invalid stored user data, clearing...");
+          await AsyncStorage.removeItem("user");
+        }
+      }
+
+      return { user: null, sessionValid: false };
     } catch (error: unknown) {
       console.error("Auth initialization error:", error);
 
       // If it's just a "no session" error, return null instead of rejecting
       if (isNoSessionError(error)) {
-        return null;
+        return { user: null, sessionValid: false };
       }
 
       // Only reject for actual errors
+      return rejectWithValue(handleAuthError(error));
+    }
+  }
+);
+
+// Enhanced session validation thunk
+export const validateSession = createAsyncThunk(
+  "auth/validateSession",
+  async (_, { rejectWithValue }) => {
+    try {
+      const { user, session } = await validateAndRefreshSession();
+
+      if (user && session) {
+        const userData: User = {
+          id: user.id,
+          email: user.email || "",
+          name: user.user_metadata?.name
+        };
+        await AsyncStorage.setItem("user", JSON.stringify(userData));
+        return {
+          user: userData,
+          sessionValid: true,
+          validationTime: Date.now()
+        };
+      }
+
+      // Session is invalid, clear stored data
+      await AsyncStorage.removeItem("user");
+      return { user: null, sessionValid: false, validationTime: Date.now() };
+    } catch (error: unknown) {
+      console.error("Session validation error:", error);
+      await AsyncStorage.removeItem("user");
       return rejectWithValue(handleAuthError(error));
     }
   }
@@ -98,14 +162,18 @@ export const loginUser = createAsyncThunk(
         throw response.error;
       }
 
+      if (!response.data) {
+        throw new Error("Login failed - no data returned");
+      }
+
       const userData: User = {
         id: response.data.user.id,
-        email: response.data.user.email,
+        email: response.data.user.email || "",
         name: response.data.user.user_metadata?.name
       };
 
       await AsyncStorage.setItem("user", JSON.stringify(userData));
-      return userData;
+      return { user: userData, sessionValid: true };
     } catch (error: unknown) {
       console.error("Login error:", error);
       return rejectWithValue(handleAuthError(error));
@@ -125,6 +193,10 @@ export const registerUser = createAsyncThunk(
         throw response.error;
       }
 
+      if (!response.data) {
+        throw new Error("Registration failed - no data returned");
+      }
+
       // For sign up, user might need email confirmation
       if (response.data.user && !response.data.session) {
         return rejectWithValue(
@@ -132,18 +204,14 @@ export const registerUser = createAsyncThunk(
         );
       }
 
-      if (response.data.user) {
-        const userData: User = {
-          id: response.data.user.id,
-          email: response.data.user.email,
-          name: response.data.user.user_metadata?.name
-        };
+      const userData: User = {
+        id: response.data.user.id,
+        email: response.data.user.email || "",
+        name: response.data.user.user_metadata?.name
+      };
 
-        await AsyncStorage.setItem("user", JSON.stringify(userData));
-        return userData;
-      }
-
-      throw new Error("Registration failed");
+      await AsyncStorage.setItem("user", JSON.stringify(userData));
+      return { user: userData, sessionValid: true };
     } catch (error: unknown) {
       console.error("Registration error:", error);
       return rejectWithValue(handleAuthError(error));
@@ -176,6 +244,11 @@ const authSlice = createSlice({
     setUser: (state, action: PayloadAction<User | null>) => {
       state.user = action.payload;
       state.isAuthenticated = !!action.payload;
+      state.sessionValid = !!action.payload;
+    },
+    setSessionValid: (state, action: PayloadAction<boolean>) => {
+      state.sessionValid = action.payload;
+      state.lastValidationTime = Date.now();
     },
     HYDRATE: (state, action: PayloadAction<{ auth: AuthState }>) => {
       return { ...state, ...action.payload.auth };
@@ -190,9 +263,11 @@ const authSlice = createSlice({
       })
       .addCase(initializeAuth.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload;
-        state.isAuthenticated = !!action.payload;
+        state.user = action.payload.user;
+        state.isAuthenticated = !!action.payload.user;
+        state.sessionValid = action.payload.sessionValid;
         state.error = null;
+        state.lastValidationTime = Date.now();
       })
       .addCase(initializeAuth.rejected, (state, action) => {
         state.loading = false;
@@ -200,6 +275,27 @@ const authSlice = createSlice({
         state.lastError = action.payload as string;
         state.user = null;
         state.isAuthenticated = false;
+        state.sessionValid = false;
+      });
+
+    // Session Validation
+    builder
+      .addCase(validateSession.pending, () => {
+        // Don't set loading for background validation
+      })
+      .addCase(validateSession.fulfilled, (state, action) => {
+        state.user = action.payload.user;
+        state.isAuthenticated = !!action.payload.user;
+        state.sessionValid = action.payload.sessionValid;
+        state.lastValidationTime = action.payload.validationTime;
+        state.error = null;
+      })
+      .addCase(validateSession.rejected, (state, action) => {
+        state.error = action.payload as string;
+        state.user = null;
+        state.isAuthenticated = false;
+        state.sessionValid = false;
+        state.lastValidationTime = Date.now();
       });
 
     // Login
@@ -210,9 +306,11 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload;
+        state.user = action.payload.user;
         state.isAuthenticated = true;
+        state.sessionValid = action.payload.sessionValid;
         state.error = null;
+        state.lastValidationTime = Date.now();
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
@@ -220,6 +318,7 @@ const authSlice = createSlice({
         state.lastError = action.payload as string;
         state.user = null;
         state.isAuthenticated = false;
+        state.sessionValid = false;
       });
 
     // Register
@@ -230,9 +329,11 @@ const authSlice = createSlice({
       })
       .addCase(registerUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload;
+        state.user = action.payload.user;
         state.isAuthenticated = true;
+        state.sessionValid = action.payload.sessionValid;
         state.error = null;
+        state.lastValidationTime = Date.now();
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
@@ -240,6 +341,7 @@ const authSlice = createSlice({
         state.lastError = action.payload as string;
         state.user = null;
         state.isAuthenticated = false;
+        state.sessionValid = false;
       });
 
     // Logout
@@ -252,7 +354,9 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = null;
         state.isAuthenticated = false;
+        state.sessionValid = false;
         state.error = null;
+        state.lastValidationTime = undefined;
       })
       .addCase(logoutUser.rejected, (state, action) => {
         state.loading = false;
@@ -261,9 +365,10 @@ const authSlice = createSlice({
         // Still log out locally even if server request fails
         state.user = null;
         state.isAuthenticated = false;
+        state.sessionValid = false;
       });
   }
 });
 
-export const { clearError, setUser } = authSlice.actions;
+export const { clearError, setUser, setSessionValid } = authSlice.actions;
 export default authSlice.reducer;

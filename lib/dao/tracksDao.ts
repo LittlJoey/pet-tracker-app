@@ -109,4 +109,34 @@ export class TracksDao {
       return false;
     }
   }
+
+  static async getAllUserTracks(): Promise<PetTrack[]> {
+    try {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from("pet_tracks")
+        .select(
+          `
+          *,
+          pets!inner(name, species)
+        `
+        )
+        .eq("user_id", user.id)
+        .order("track_date", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching all user tracks:", error);
+        return [];
+      }
+
+      return data as PetTrack[];
+    } catch (error) {
+      console.error("Error in getAllUserTracks:", error);
+      return [];
+    }
+  }
 }

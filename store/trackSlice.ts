@@ -23,6 +23,15 @@ export const fetchTracks = createAsyncThunk(
   }
 );
 
+export const fetchAllTracks = createAsyncThunk(
+  "tracks/fetchAllTracks",
+  async () => {
+    const tracks = await TracksDao.getAllUserTracks();
+    await AsyncStorage.setItem("all_tracks", JSON.stringify(tracks));
+    return tracks;
+  }
+);
+
 export const addTrack = createAsyncThunk(
   "tracks/addTrack",
   async (track: PetTrack) => {
@@ -68,7 +77,7 @@ const trackSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
-    HYDRATE: (state, action: PayloadAction<any>) => {
+    HYDRATE: (state, action: PayloadAction<{ tracks?: TrackState }>) => {
       return { ...state, ...action.payload.tracks };
     }
   },
@@ -86,6 +95,19 @@ const trackSlice = createSlice({
       .addCase(fetchTracks.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || "Failed to fetch tracks";
+      })
+      // Fetch All Tracks
+      .addCase(fetchAllTracks.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchAllTracks.fulfilled, (state, action) => {
+        state.loading = false;
+        state.tracks = action.payload;
+      })
+      .addCase(fetchAllTracks.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || "Failed to fetch all tracks";
       })
       // Add Track
       .addCase(addTrack.pending, (state) => {

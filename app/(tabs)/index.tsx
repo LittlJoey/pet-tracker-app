@@ -1,4 +1,5 @@
-import React from "react";
+import { router } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Image,
@@ -16,13 +17,13 @@ import {
 import { SidebarPetList } from "@/components/SidebarPetList";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { Colors } from "@/constants/Colors";
+import { useColorScheme } from "@/hooks/useColorScheme";
 import { useAppDispatch, useAppSelector } from "@/store";
 import {
   fetchActivityStats,
+  fetchAllUserActivities,
   fetchTodayActivities
 } from "@/store/activitiesSlice";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useColorScheme } from "react-native";
 
 export default function HomeScreen() {
   const dispatch = useAppDispatch();
@@ -55,6 +56,36 @@ export default function HomeScreen() {
       .finally(() => setRefreshing(false));
   }, [dispatch, selectedPet?.id]);
 
+  const handleViewMoreActivities = useCallback(() => {
+    if (selectedPet) {
+      // Navigate to activities with specific pet
+      router.push("/activities");
+    } else {
+      // Navigate to all activities
+      router.push("/activities");
+    }
+  }, [selectedPet]);
+
+  const handleActivityPress = useCallback((activityId: string) => {
+    // Navigate to activity detail
+    console.log("Navigate to activity detail:", activityId);
+    router.navigate({
+      pathname: "/activities/[id]",
+      params: { id: activityId }
+    });
+  }, []);
+
+  const handleAddActivity = useCallback(() => {
+    if (selectedPet) {
+      router.navigate({
+        pathname: "/activities/add",
+        params: { petId: selectedPet.id }
+      });
+    } else {
+      router.navigate("/activities/add");
+    }
+  }, [selectedPet]);
+
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -65,22 +96,36 @@ export default function HomeScreen() {
 
   // Fetch activities when component mounts or selected pet changes
   useEffect(() => {
-    console.log("Fetching activities for petId:", selectedPet?.id);
-    if (selectedPet?.id) {
-      dispatch(fetchTodayActivities({ petId: selectedPet.id }));
-      dispatch(fetchActivityStats({ petId: selectedPet.id }));
-    } else {
-      console.log("Fetching activities for all pets");
-      // Fetch all activities if no pet is selected
-      dispatch(fetchTodayActivities({}));
-      dispatch(fetchActivityStats({}));
-    }
+    console.log("🔍 Home: Effect triggered - selectedPet:", selectedPet?.id);
+    console.log("🔍 Home: Current activities count:", activities.length);
+
+    const fetchParams = selectedPet?.id ? { petId: selectedPet.id } : {};
+    console.log("🔍 Home: Fetching with params:", fetchParams);
+
+    dispatch(fetchTodayActivities(fetchParams))
+      .unwrap()
+      .then((result) => {
+        console.log(
+          "✅ Home: fetchTodayActivities successful, count:",
+          result.length
+        );
+      })
+      .catch((error) => {
+        console.error("❌ Home: fetchTodayActivities failed:", error);
+      });
+
+    dispatch(fetchActivityStats(fetchParams))
+      .unwrap()
+      .then((result) => {
+        console.log("✅ Home: fetchActivityStats successful:", result);
+      })
+      .catch((error) => {
+        console.error("❌ Home: fetchActivityStats failed:", error);
+      });
   }, [dispatch, selectedPet?.id]);
 
   useEffect(() => {
-    // Fetch all activities if no pet is selected
-    dispatch(fetchTodayActivities({}));
-    dispatch(fetchActivityStats({}));
+    dispatch(fetchAllUserActivities({}));
   }, []);
 
   return (
@@ -101,6 +146,9 @@ export default function HomeScreen() {
           {/* Greeting Banner */}
           <GreetingBanner userName={user?.email} loading={userLoading} />
 
+          {/* Debug Panel - Remove this after fixing */}
+          {/* <ActivitiesDebugger /> */}
+
           {/* Pet Activity Card */}
           {selectedPet ? (
             <PetActivityCard
@@ -116,9 +164,9 @@ export default function HomeScreen() {
               loading={activityLoading}
               error={activityError}
               onRetry={handleRetry}
-              onViewMore={() =>
-                console.log("View more activities for", selectedPet.name)
-              }
+              onViewMore={handleViewMoreActivities}
+              onActivityPress={handleActivityPress}
+              onAddActivity={handleAddActivity}
             />
           ) : (
             <PetActivityCard
@@ -137,9 +185,9 @@ export default function HomeScreen() {
               loading={activityLoading}
               error={activityError}
               onRetry={handleRetry}
-              onViewMore={() =>
-                console.log("View more activities for all pets")
-              }
+              onViewMore={handleViewMoreActivities}
+              onActivityPress={handleActivityPress}
+              onAddActivity={handleAddActivity}
             />
           )}
 

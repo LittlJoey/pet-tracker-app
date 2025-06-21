@@ -15,13 +15,49 @@ export interface PetActivity {
   created_at?: string;
   updated_at?: string;
   metadata?: {
-    // Flexible field for activity-specific data
+    track_id?: string;
+    route_points?: {
+      latitude: number;
+      longitude: number;
+      timestamp: number;
+    }[];
+    start_time?: string;
+    end_time?: string;
+    pace_per_km?: string;
+    distance_meters?: number;
+    duration_seconds?: number;
+    // Generic fields for all activities
     location?: string;
-    medication_name?: string;
-    vet_name?: string;
-    food_type?: string;
-    toy_type?: string;
     notes?: string;
+
+    // Walk-specific fields
+    route?: string;
+
+    // Meal-specific fields
+    food_type?: string;
+    amount?: string;
+    mealTime?: string;
+
+    // Medication-specific fields
+    medication_name?: string;
+    dosage?: string;
+    frequency?: string;
+
+    // Vet visit-specific fields
+    vet_name?: string;
+    reason?: string;
+    diagnosis?: string;
+    nextAppointment?: string;
+
+    // Grooming-specific fields
+    services?: string;
+    groomer?: string;
+    cost?: number;
+
+    // Play-specific fields
+    playType?: string;
+    toy_type?: string;
+    toys?: string;
   };
 }
 
@@ -155,10 +191,29 @@ export class ActivitiesDao {
 
   static async getAllUserActivities(limit?: number): Promise<PetActivity[]> {
     try {
+      console.log("🔍 DAO: getAllUserActivities called with limit:", limit);
+
       const {
-        data: { user }
+        data: { user },
+        error: authError
       } = await supabase.auth.getUser();
-      if (!user) return [];
+
+      console.log(
+        "🔍 DAO: Auth check - user:",
+        user?.id,
+        "error:",
+        authError?.message
+      );
+
+      if (authError) {
+        console.error("❌ DAO: Auth error in getAllUserActivities:", authError);
+        return [];
+      }
+
+      if (!user) {
+        console.log("⚠️ DAO: No user found in getAllUserActivities");
+        return [];
+      }
 
       let query = supabase
         .from("pet_activities")
@@ -172,30 +227,57 @@ export class ActivitiesDao {
         .order("activity_date", { ascending: false });
 
       if (limit) {
+        console.log("🔍 DAO: Adding limit:", limit);
         query = query.limit(limit);
       }
 
+      console.log("🔍 DAO: Executing getAllUserActivities query...");
       const { data, error } = await query;
 
       if (error) {
-        console.error("Error fetching all user activities:", error);
+        console.error("❌ DAO: Error fetching all user activities:", error);
         return [];
       }
 
+      console.log(
+        "✅ DAO: Successfully fetched",
+        data?.length || 0,
+        "user activities"
+      );
+      console.log("📦 DAO: Activities data:", data);
+
       return data as PetActivity[];
     } catch (error) {
-      console.error("Error in getAllUserActivities:", error);
+      console.error("❌ DAO: Exception in getAllUserActivities:", error);
       return [];
     }
   }
 
   static async getTodayActivities(petId?: string): Promise<PetActivity[]> {
     try {
+      console.log("🔍 DAO: getTodayActivities called with petId:", petId);
+
       const {
-        data: { user }
+        data: { user },
+        error: authError
       } = await supabase.auth.getUser();
-      console.log("Getting today activities for user:", user);
-      if (!user) return [];
+
+      console.log(
+        "🔍 DAO: Auth check - user:",
+        user?.id,
+        "error:",
+        authError?.message
+      );
+
+      if (authError) {
+        console.error("❌ DAO: Auth error in getTodayActivities:", authError);
+        return [];
+      }
+
+      if (!user) {
+        console.log("⚠️ DAO: No user found in getTodayActivities");
+        return [];
+      }
 
       const today = new Date();
       const startOfDay = new Date(
@@ -208,6 +290,8 @@ export class ActivitiesDao {
         today.getMonth(),
         today.getDate() + 1
       ).toISOString();
+
+      console.log("🔍 DAO: Date range - start:", startOfDay, "end:", endOfDay);
 
       let query = supabase
         .from("pet_activities")
@@ -223,19 +307,28 @@ export class ActivitiesDao {
         .order("activity_date", { ascending: false });
 
       if (petId) {
+        console.log("🔍 DAO: Adding petId filter:", petId);
         query = query.eq("pet_id", petId);
       }
 
+      console.log("🔍 DAO: Executing query...");
       const { data, error } = await query;
 
       if (error) {
-        console.error("Error fetching today's activities:", error);
+        console.error("❌ DAO: Error fetching today's activities:", error);
         return [];
       }
 
+      console.log(
+        "✅ DAO: Successfully fetched",
+        data?.length || 0,
+        "today's activities"
+      );
+      console.log("📦 DAO: Activities data:", data);
+
       return data as PetActivity[];
     } catch (error) {
-      console.error("Error in getTodayActivities:", error);
+      console.error("❌ DAO: Exception in getTodayActivities:", error);
       return [];
     }
   }

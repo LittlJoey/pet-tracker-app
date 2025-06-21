@@ -214,56 +214,96 @@ const activitiesSlice = createSlice({
     builder
       // Fetch Today Activities
       .addCase(fetchTodayActivities.pending, (state) => {
+        console.log("🔄 Activities: fetchTodayActivities pending");
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchTodayActivities.fulfilled, (state, action) => {
+        console.log(
+          "✅ Activities: fetchTodayActivities fulfilled with",
+          action.payload.length,
+          "activities"
+        );
+        console.log("📦 Activities data:", action.payload);
         state.loading = false;
         state.todayActivities = action.payload;
       })
       .addCase(fetchTodayActivities.rejected, (state, action) => {
+        console.error(
+          "❌ Activities: fetchTodayActivities rejected:",
+          action.payload
+        );
         state.loading = false;
         state.error = action.payload as string;
       })
 
       // Fetch Activity Stats
       .addCase(fetchActivityStats.pending, (state) => {
+        console.log("🔄 Activities: fetchActivityStats pending");
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchActivityStats.fulfilled, (state, action) => {
+        console.log(
+          "✅ Activities: fetchActivityStats fulfilled:",
+          action.payload
+        );
         state.loading = false;
         state.stats = action.payload;
       })
       .addCase(fetchActivityStats.rejected, (state, action) => {
+        console.error(
+          "❌ Activities: fetchActivityStats rejected:",
+          action.payload
+        );
         state.loading = false;
         state.error = action.payload as string;
       })
 
       // Fetch All User Activities
       .addCase(fetchAllUserActivities.pending, (state) => {
+        console.log("🔄 Activities: fetchAllUserActivities pending");
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchAllUserActivities.fulfilled, (state, action) => {
+        console.log(
+          "✅ Activities: fetchAllUserActivities fulfilled with",
+          action.payload.length,
+          "activities"
+        );
         state.loading = false;
         state.activities = action.payload;
       })
       .addCase(fetchAllUserActivities.rejected, (state, action) => {
+        console.error(
+          "❌ Activities: fetchAllUserActivities rejected:",
+          action.payload
+        );
         state.loading = false;
         state.error = action.payload as string;
       })
 
       // Fetch Pet Activities
       .addCase(fetchPetActivities.pending, (state) => {
+        console.log("🔄 Activities: fetchPetActivities pending");
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchPetActivities.fulfilled, (state, action) => {
+        console.log(
+          "✅ Activities: fetchPetActivities fulfilled with",
+          action.payload.length,
+          "activities"
+        );
         state.loading = false;
         state.activities = action.payload;
       })
       .addCase(fetchPetActivities.rejected, (state, action) => {
+        console.error(
+          "❌ Activities: fetchPetActivities rejected:",
+          action.payload
+        );
         state.loading = false;
         state.error = action.payload as string;
       })

@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, Session, User } from "@supabase/supabase-js";
 
 // Replace these with your Supabase project credentials
 const supabaseUrl = "https://xlqzodrfmofmhumqcpro.supabase.co";
@@ -29,9 +29,25 @@ export type AuthError = {
   message: string;
 };
 
+export type AuthData = {
+  user: User;
+  session: Session;
+};
+
 export type AuthResponse = {
   error: AuthError | null;
-  data: any | null;
+  data: AuthData | null;
+};
+
+// Helper function to handle unknown errors
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  return "An unknown error occurred";
 };
 
 export const signUp = async (
@@ -50,12 +66,24 @@ export const signUp = async (
       hasError: !!error,
       error: error?.message
     });
-    return { data, error };
+
+    if (error) {
+      return { data: null, error: { message: error.message } };
+    }
+
+    if (data.user && data.session) {
+      return {
+        data: { user: data.user, session: data.session },
+        error: null
+      };
+    }
+
+    return { data: null, error: { message: "Registration failed" } };
   } catch (err) {
     console.error("SignUp network error:", err);
     return {
       data: null,
-      error: { message: `Network error: ${err.message || "Connection failed"}` }
+      error: { message: `Network error: ${getErrorMessage(err)}` }
     };
   }
 };
@@ -76,12 +104,24 @@ export const signIn = async (
       hasError: !!error,
       error: error?.message
     });
-    return { data, error };
+
+    if (error) {
+      return { data: null, error: { message: error.message } };
+    }
+
+    if (data.user && data.session) {
+      return {
+        data: { user: data.user, session: data.session },
+        error: null
+      };
+    }
+
+    return { data: null, error: { message: "Login failed" } };
   } catch (err) {
     console.error("SignIn network error:", err);
     return {
       data: null,
-      error: { message: `Network error: ${err.message || "Connection failed"}` }
+      error: { message: `Network error: ${getErrorMessage(err)}` }
     };
   }
 };
@@ -114,5 +154,81 @@ export const getCurrentUser = async () => {
   } catch (err) {
     console.error("Get current user error:", err);
     throw err;
+  }
+};
+
+// New helper functions for improved token management
+export const getCurrentSession = async (): Promise<Session | null> => {
+  try {
+    const {
+      data: { session },
+      error
+    } = await supabase.auth.getSession();
+
+    if (error) throw error;
+    return session;
+  } catch (err) {
+    console.error("Get current session error:", err);
+    return null;
+  }
+};
+
+export const refreshSession = async (): Promise<Session | null> => {
+  try {
+    console.log("Refreshing session");
+    const {
+      data: { session },
+      error
+    } = await supabase.auth.refreshSession();
+
+    console.log("Session refresh response:", {
+      hasSession: !!session,
+      error: error?.message
+    });
+
+    if (error) throw error;
+    return session;
+  } catch (err) {
+    console.error("Session refresh error:", err);
+    return null;
+  }
+};
+
+// Check if current session is valid and refresh if needed
+export const validateAndRefreshSession = async (): Promise<{
+  user: User | null;
+  session: Session | null;
+}> => {
+  try {
+    // First try to get current session
+    let session = await getCurrentSession();
+
+    if (!session) {
+      console.log("No session found");
+      return { user: null, session: null };
+    }
+
+    // Check if session is expired or close to expiring (within 5 minutes)
+    const now = Date.now() / 1000;
+    const expiresAt = session.expires_at || 0;
+    const isExpired = expiresAt < now;
+    const isCloseToExpiry = expiresAt < now + 300; // 5 minutes
+
+    if (isExpired || isCloseToExpiry) {
+      console.log("Session expired or close to expiry, refreshing...");
+      session = await refreshSession();
+
+      if (!session) {
+        console.log("Failed to refresh session");
+        return { user: null, session: null };
+      }
+    }
+
+    // Get current user
+    const user = await getCurrentUser();
+    return { user, session };
+  } catch (err) {
+    console.error("Session validation error:", err);
+    return { user: null, session: null };
   }
 };

@@ -120,6 +120,12 @@ function RootLayoutContent() {
         >
           <Stack.Screen name="(tabs)" />
           <Stack.Screen
+            name="activities"
+            options={{
+              headerShown: false
+            }}
+          />
+          <Stack.Screen
             name="pet"
             options={{
               presentation: "card",

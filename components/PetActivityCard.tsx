@@ -35,6 +35,8 @@ interface PetActivityCardProps {
   totalDistance: string;
   isMultiPetView?: boolean;
   onViewMore?: () => void;
+  onActivityPress?: (activityId: string) => void;
+  onAddActivity?: () => void;
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
@@ -73,6 +75,8 @@ export function PetActivityCard({
   totalDistance,
   isMultiPetView = false,
   onViewMore,
+  onActivityPress,
+  onAddActivity,
   loading = false,
   error = null,
   onRetry
@@ -103,7 +107,7 @@ export function PetActivityCard({
         }
         icon="pawprint.fill"
         actionText="Track Activity"
-        onAction={() => console.log("Navigate to add activity")}
+        onAction={onAddActivity}
       />
     );
   }
@@ -212,12 +216,14 @@ export function PetActivityCard({
 
       {/* Activities List */}
       {recentActivities.map((activity) => (
-        <View
+        <TouchableOpacity
           key={activity.id}
           style={[
             styles.activityItem,
             { borderBottomColor: Colors[colorScheme].border }
           ]}
+          onPress={() => onActivityPress?.(activity.id)}
+          disabled={!onActivityPress}
         >
           <View style={styles.activityContent}>
             <View style={styles.iconAndTitle}>
@@ -248,15 +254,17 @@ export function PetActivityCard({
                 </ThemedText>
               </View>
             </View>
-            <TouchableOpacity style={styles.chevronButton}>
-              <IconSymbol
-                name="chevron.right"
-                size={16}
-                color={Colors[colorScheme].icon}
-              />
-            </TouchableOpacity>
+            {onActivityPress && (
+              <View style={styles.chevronButton}>
+                <IconSymbol
+                  name="chevron.right"
+                  size={16}
+                  color={Colors[colorScheme].icon}
+                />
+              </View>
+            )}
           </View>
-        </View>
+        </TouchableOpacity>
       ))}
 
       {/* More Activities Button */}
