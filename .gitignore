@@ -39,3 +39,7 @@ app-example
 
 /android
 /ios
+
+# gemini & cursor
+./genimi
+./cursor
