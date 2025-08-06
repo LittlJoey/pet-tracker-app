@@ -41,5 +41,5 @@ app-example
 /ios
 
 # gemini & cursor
-./genimi
-./cursor
+.genimi/
+.cursor/
